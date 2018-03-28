@@ -1,5 +1,5 @@
 
-// E1.31 Receiver and pixel controller by Chris Rees for the Teensy 3.2 This code was modified from 
+// E1.31 Receiver and pixel controller by Chris Rees (crees@bearrivernet.net) for the Teensy 3.2 This code was modified from 
 // Andrew Huxtable base code. (andrew@hux.net.au)
 // This code may be freely distributed and used as you see fit for non-profit
 // purposes and as long as the original author is credited and it remains open
