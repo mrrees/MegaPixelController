@@ -11,7 +11,7 @@
 
 // You will need the, Teensy utility installed with the added Ethernet One Socket and FastLed Libraries from:
 // [url]https://www.pjrc.com/teensy/teensyduino.html[/url]
-// [url]https://github.com/alex-Arc/Ethernet/tree/1-socket[/url]
+// [url]https://github.com/mrrees/MegaPixel-One-Socket-Ethernet[/url]
 // [url]https://github.com/FastLED/FastLED/releases[/url]
 //
 // Please note the one socket library may throw errors in compiling.  I do have a modified version of this library but the 
