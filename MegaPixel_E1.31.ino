@@ -226,9 +226,9 @@ void initTest() //runs at board boot to make sure pixels are working
 void loop() {
    //Process packets
    int packetSize = Udp.parsePacket(); //Read UDP packet count
-   if (c >= UNIVERSE_COUNT){
+   if (c > UNIVERSE_COUNT){
    
-   c = 0;
+   c = 1;
    }
    if(packetSize){
     //Serial.println(packetSize);
@@ -241,7 +241,7 @@ void loop() {
      //Serial.print("packet size first ");
      //Serial.println(packetSize);
 
-     c = c + 1;
+     
 
 //Calculation of FPS.  Not working correcly..... Commented out untill resolved
 
@@ -259,6 +259,7 @@ void loop() {
     
      sacnDMXReceived(packetBuffer, count, c); //process data function
      
+     c = c + 1;
      
     
     }  
