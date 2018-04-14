@@ -14,8 +14,9 @@
 // [url]https://github.com/mrrees/MegaPixel-One-Socket-Ethernet[/url]
 // [url]https://github.com/FastLED/FastLED/releases[/url]
 //
-// Please note the one socket library may throw errors in compiling.  I do have a modified version of this library but the 
-// compile error should be resolved properly and not fixed with a band aid method I have used.  
+// Please note the one socket library may throw errors in compiling. The error was in realation to the chip speed detection and using the 
+// correct SPI speed.  
+//
 // The Teensy with the Octows2811 and FastLED will allow up to 5440 Pixels (32 Universes) to run.  One thing to note is if you desire
 // high frame rates your pixel count must not exceed over 680 Pixels per Octo Pin.  The reason why is the ammount of time to write out to 
 // these LED's takes time to shift from one LED to the next.  The more LED's per SPI or Octo Pin the more time it takes and the less frame 
