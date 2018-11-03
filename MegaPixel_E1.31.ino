@@ -53,11 +53,11 @@ byte mac[] = { 0x74, 0x69, 0x69, 0x2D, 0x30, 0x14 };
 //*******************************************************
 // ethernet interface ip address
 IPAddress ip(192, 168, 2, 21);  //IP address of ethernet shield
+//IPAddress mip(239,255,0,1); //multicast IP
 //*******************************************************
 
 // E1.31 is UDP.  One socket library will only allow one protocol to be defined.  
 EthernetUDP Udp;
-
 
 
 //Leave this alone.  At current a full e1.31 frame is 636 bytes..
@@ -115,7 +115,7 @@ void setup() {
   // Using different LEDs or colour order? Change here...
   // ********************************************************
   LEDS.addLeds<OCTOWS2811>(leds, NUM_LEDS_PER_STRIP);
-  LEDS.setBrightness(100);
+  LEDS.setBrightness(50);
   // ********************************************************
 
   //pins 3,4,22 are to the RGB Status LED
@@ -123,7 +123,11 @@ void setup() {
   // ********************************************************  
   Ethernet.begin(mac,ip);
 
-  Udp.begin(5568);
+//int success = Udp.beginMulticast(mip, 5568);
+//Serial.print( "begin, success: " );
+//Serial.println( success );
+
+ Udp.begin(5568);
 
 //DEFINE AND Turn Framing LED OFF
   pinMode(4, OUTPUT);
@@ -145,6 +149,25 @@ void setup() {
 
 
 
+static inline void fps2(const int seconds){
+  // Create static variables so that the code and variables can
+  // all be declared inside a function
+  static unsigned long lastMillis;
+  static unsigned long frameCount;
+  static unsigned int framesPerSecond;
+  
+  // It is best if we declare millis() only once
+  unsigned long now = millis();
+  frameCount ++;
+  if (now - lastMillis >= seconds * 1000) {
+    framesPerSecond = frameCount / seconds;
+    Serial.print("FPS @ ");
+    Serial.println(framesPerSecond);
+    frameCount = 0;
+    lastMillis = now;
+  }
+}
+
 
 
 
@@ -159,7 +182,7 @@ void sacnDMXReceived(unsigned char* pbuff, int count, int unicount) {
    digitalWrite(4, HIGH);
     
     //Serial.println(s );
-    if ( b >= DMX_UNIVERSE && b <= DMX_UNIVERSE + UNIVERSE_COUNT ) {
+    if ( b >= DMX_UNIVERSE && b <= 1 - DMX_UNIVERSE + UNIVERSE_COUNT ) {
 
       if ( pbuff[125] == 0 ) {  //start code must be 0
       int ledNumber = (b - DMX_UNIVERSE) * LEDS_PER_UNIVERSE;
@@ -179,20 +202,30 @@ void sacnDMXReceived(unsigned char* pbuff, int count, int unicount) {
 
 
         
-        //Serial.println(unicount);
-        if (unicount == UNIVERSE_COUNT){
+
+        
+        }
+
+       
+
+ 
+      
+          
+ 
+      
+      }
+
+
+    
+  }
+         //Serial.println(unicount);
+        if (b == 1 - DMX_UNIVERSE + UNIVERSE_COUNT){
         //Turn Framing LED ON
         digitalWrite(4, LOW);
         LEDS.show();
+        //Frames Per Second Function fps(every_seconds)
+        fps2(10);
         }
-
- 
-      }
-          
-
-      
-    }
-  }
 
 }
 
@@ -211,6 +244,7 @@ int checkACNHeaders(unsigned char* messagein, int messagelength) {
     }
   return 0;
 }
+
 
 
 void initTest() //runs at board boot to make sure pixels are working
@@ -243,20 +277,8 @@ void loop() {
      //Serial.println(packetSize);
 
      
+     
 
-//Calculation of FPS.  Not working correcly..... Commented out untill resolved
-
-     // calculate framerate
-   // currentMillis = millis();
-   // if(currentMillis > previousMillis){
-     // fps = 1 / ((currentMillis - previousMillis) * 0.001);
-   // } else {
-    //  fps = 0;
-   // }
-   // previousMillis = currentMillis;
- 
-     //if (fps > 10 && fps < 500)// don't show numbers below or over given ammount
-     //Serial.println(fps); // show FPS (needs fixing)
     
      sacnDMXReceived(packetBuffer, count, c); //process data function
      
