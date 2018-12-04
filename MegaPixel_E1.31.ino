@@ -218,6 +218,10 @@ void sacnDMXReceived(unsigned char* pbuff, int count, int unicount) {
 
     
   }
+
+
+}
+
          //Serial.println(unicount);
         if (b == 1 - DMX_UNIVERSE + UNIVERSE_COUNT){
         //Turn Framing LED ON
@@ -226,9 +230,6 @@ void sacnDMXReceived(unsigned char* pbuff, int count, int unicount) {
         //Frames Per Second Function fps(every_seconds)
         fps2(10);
         }
-
-}
-
 
 int checkACNHeaders(unsigned char* messagein, int messagelength) {
   //Do some VERY basic checks to see if it's an E1.31 packet.
