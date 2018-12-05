@@ -35,6 +35,7 @@
 #define USE_OCTOWS2811
 #include<OctoWS2811.h>
 #include<FastLED.h>
+#include <EEPROM.h>
 
 
 //*********************************************************************************
@@ -42,36 +43,41 @@
 
 // enter desired universe and subnet  (sACN first universe is 1)
 #define DMX_SUBNET 0
-#define DMX_UNIVERSE 1 //**Start** universe
+//#define DMX_UNIVERSE 1 //**Start** universe
 
 
 // Set a different MAC address for each controller IMPORTANT!!!! you can change the last value but make sure its HEX!...
-byte mac[] = { 0x74, 0x69, 0x69, 0x2D, 0x30, 0x14 };
+byte mac[] = { 0x74, 0x69, 0x69, 0x2D, 0x30, 0x15 };
 
 
 // Uncomment if you want to use static IP
 //*******************************************************
 // ethernet interface ip address
-IPAddress ip(192, 168, 2, 21);  //IP address of ethernet shield
+IPAddress ip(10, 0, 0, 15);  //IP address of ethernet shield
 //IPAddress mip(239,255,0,1); //multicast IP
 //*******************************************************
 
 // E1.31 is UDP.  One socket library will only allow one protocol to be defined.  
 EthernetUDP Udp;
 
-
+//DEFINES for at Compile time.
 //Leave this alone.  At current a full e1.31 frame is 636 bytes..
  #define ETHERNET_BUFFER 636 //540 is artnet leave at 636 for e1.31
- 
- /// Change Values and needed. 
- #define CHANNEL_COUNT 16320 //because it divides by 3 nicely
- #define NUM_LEDS 5440 // with current fastLED and OctoWs2811 libraries buffers... do not go higher than this - Runs out of SRAM
- #define NUM_LEDS_PER_STRIP 680
+ #define NUM_LEDS_PER_STRIP 170 //170
  #define NUM_STRIPS 8
- #define UNIVERSE_COUNT 32
- #define LEDS_PER_UNIVERSE 170
 
 
+///GLOBALS
+ int unsigned DMX_UNIVERSE = 1; //**Start** universe 
+ int unsigned UNIVERSE_COUNT = 32; //How Many Universes 
+ int unsigned UNIVERSE_LAST = 32; // List the last universe typically its sequencially from start but does not have to. 8, 16, 24, 28, 40, 48
+ int unsigned CHANNEL_COUNT = 510; //max channels per dmx packet
+ byte unsigned LEDS_PER_UNIVERSE = 170; // Max RGB pixels 
+
+//
+ int unsigned NUM_LEDS  = UNIVERSE_COUNT * LEDS_PER_UNIVERSE; // with current fastLED and OctoWs2811 libraries buffers... do not go higher than this - Runs out of SRAM
+
+///
 
 
 
@@ -80,6 +86,7 @@ EthernetUDP Udp;
 //***********************************************************
 
 // Define the array of leds
+
 CRGB leds[NUM_STRIPS * NUM_LEDS_PER_STRIP];
 
 // Pin layouts on the teensy 3:
@@ -93,6 +100,9 @@ unsigned long currentMillis = 0;
 unsigned long previousMillis = 0;
 
 void setup() {
+
+ //Figure last universe 
+
 
 
 //WIZNET RESET AND INITIALIZE
@@ -115,7 +125,7 @@ void setup() {
   // Using different LEDs or colour order? Change here...
   // ********************************************************
   LEDS.addLeds<OCTOWS2811>(leds, NUM_LEDS_PER_STRIP);
-  LEDS.setBrightness(50);
+  LEDS.setBrightness(125);
   // ********************************************************
 
   //pins 3,4,22 are to the RGB Status LED
@@ -161,30 +171,78 @@ static inline void fps2(const int seconds){
   frameCount ++;
   if (now - lastMillis >= seconds * 1000) {
     framesPerSecond = frameCount / seconds;
+    
     Serial.print("FPS @ ");
     Serial.println(framesPerSecond);
     frameCount = 0;
     lastMillis = now;
   }
+
+}
+
+static inline void pixelrefresh(const int syncrefresh){
+  // Create static variables so that the code and variables can
+  // all be declared inside a function 
+  static unsigned long frametimestart;
+  static unsigned long frametimeend;
+  static unsigned long frametimechk;
+  static unsigned long frameonce;
+  unsigned long now = micros();
+ 
+
+  //start frame time
+  frametimestart = now;
+  
+//Serial.println(frametimechk)
+ //If we have framed no need to frame again update time to most recent
+ if  (syncrefresh == 1){
+ frametimeend = frametimestart; 
+ frameonce = 1;
+ }
+   
+//If we havent framed this will increment via time and at some point will be true, 
+//if so we need to frame to clear out any buffer and the hold off untill 
+//we receive our next valid dmx packet. We use the pixel protocol to get a general rule of timing to compare to.
+
+frametimechk = frametimestart - frametimeend;
+ // num leds time 30us + 300us reset to simulate the time it would take to write out pixels. 
+ //this should help us not loop to fast and risk premature framing and jeopordize ethernet buffer
+ if  (frametimechk >= (NUM_LEDS * 30) + 300){
+  frametimeend = frametimestart;
+
+
+    if (frameonce == 1){
+    LEDS.show();
+    Serial.println ("Partial framing detected");
+    frameonce = 0;  
+  }
+  
+ }
+ 
 }
 
 
 
-
-
-void sacnDMXReceived(unsigned char* pbuff, int count, int unicount) {
+void sacnDMXReceived(unsigned char* pbuff, int count) {
+  static unsigned long uniloopcount;
   if (count > CHANNEL_COUNT) count = CHANNEL_COUNT;
   byte b = pbuff[113]; //DMX Subnet
   if ( b == DMX_SUBNET) {
     b = pbuff[114];  //DMX Universe
     byte s = pbuff[111]; //sequence
+    static unsigned long ls; // Last Sequence
+    if (s > ls){
+    uniloopcount = 0; 
+    ls = s;
+    }
    //turn framing LED OFF
    digitalWrite(4, HIGH);
-    
-    //Serial.println(s );
-    if ( b >= DMX_UNIVERSE && b <= 1 - DMX_UNIVERSE + UNIVERSE_COUNT ) {
-
-      if ( pbuff[125] == 0 ) {  //start code must be 0
+    //Serial.print("UNI ");
+    //Serial.println(count );
+    //Serial.println(b);
+    if ( b >= DMX_UNIVERSE && b <= UNIVERSE_LAST) {
+        //Serial.println(b );
+      if ( pbuff[125] == 0 ) {  //start code must be 0   
       int ledNumber = (b - DMX_UNIVERSE) * LEDS_PER_UNIVERSE;
        // sACN packets come in seperate RGB but we have to set each led's RGB value together
        // this 'reads ahead' for all 3 colours before moving to the next led.
@@ -193,7 +251,7 @@ void sacnDMXReceived(unsigned char* pbuff, int count, int unicount) {
           byte charValueR = pbuff[i];
           byte charValueG = pbuff[i+1];
           byte charValueB = pbuff[i+2];
-          leds[ledNumber] = CRGB(charValueR,charValueG,charValueB);
+          leds[ledNumber] = CRGB(charValueG,charValueR,charValueB); //RBG GRB
           //Serial.println(ledNumber);
           ledNumber++;
         }
@@ -219,17 +277,30 @@ void sacnDMXReceived(unsigned char* pbuff, int count, int unicount) {
     
   }
 
+         uniloopcount ++;
+         //Serial.print("UNILOOP");
+         //Serial.println(uniloopcount);
 
-}
 
-         //Serial.println(unicount);
-        if (b == 1 - DMX_UNIVERSE + UNIVERSE_COUNT){
+//////////////////////////////////////////////////////////////////////////
+//// CHOOSE HOW YOU WANT THE CONTROLLER TO FRAME?  AFTER LAST UNIVERS/////
+//// OR AFTER COUNTING THE UNIVERSES?                                /////
+//////////////////////////////////////////////////////////////////////////
+       
+        
+        //if (b == UNIVERSE_LAST){   /// FRAME AFTER LAST UNIVERSE?
+        if (uniloopcount >= UNIVERSE_COUNT){ // OR FRAME AFTER UNIVERSE COUNT? 
         //Turn Framing LED ON
         digitalWrite(4, LOW);
         LEDS.show();
+        pixelrefresh(1);
+        uniloopcount = 0;
         //Frames Per Second Function fps(every_seconds)
-        fps2(10);
+        fps2(5);
         }
+
+}
+
 
 int checkACNHeaders(unsigned char* messagein, int messagelength) {
   //Do some VERY basic checks to see if it's an E1.31 packet.
@@ -262,10 +333,7 @@ void initTest() //runs at board boot to make sure pixels are working
 void loop() {
    //Process packets
    int packetSize = Udp.parsePacket(); //Read UDP packet count
-   if (c > UNIVERSE_COUNT){
-   
-   c = 1;
-   }
+  
    if(packetSize){
     //Serial.println(packetSize);
     Udp.read(packetBuffer,ETHERNET_BUFFER); //read UDP packet
@@ -281,15 +349,18 @@ void loop() {
      
 
     
-     sacnDMXReceived(packetBuffer, count, c); //process data function
+     sacnDMXReceived(packetBuffer, count); //process data function
      
-     c = c + 1;
+    
      
     
     }  
 
 
+
   }
+
+pixelrefresh(0);
 
 
 }
