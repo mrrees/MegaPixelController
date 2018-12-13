@@ -47,30 +47,19 @@
 
 
 // Set a different MAC address for each controller IMPORTANT!!!! you can change the last value but make sure its HEX!...
-byte mac[] = { 0x74, 0x69, 0x69, 0x2D, 0x30, 0x15 };
-
-
-// Uncomment if you want to use static IP
-//*******************************************************
-// ethernet interface ip address
-IPAddress ip(10, 0, 0, 15);  //IP address of ethernet shield
-//IPAddress mip(239,255,0,1); //multicast IP
-//*******************************************************
-
-// E1.31 is UDP.  One socket library will only allow one protocol to be defined.  
-EthernetUDP Udp;
+byte mac[] = { 0x74, 0x69, 0x69, 0x2D, 0x30, 0x21 };
 
 //DEFINES for at Compile time.
 //Leave this alone.  At current a full e1.31 frame is 636 bytes..
  #define ETHERNET_BUFFER 636 //540 is artnet leave at 636 for e1.31
- #define NUM_LEDS_PER_STRIP 170 //170
+ #define NUM_LEDS_PER_STRIP 680 //170
  #define NUM_STRIPS 8
 
 
 ///GLOBALS
- int unsigned DMX_UNIVERSE = 1; //**Start** universe 
- int unsigned UNIVERSE_COUNT = 32; //How Many Universes 
- int unsigned UNIVERSE_LAST = 32; // List the last universe typically its sequencially from start but does not have to. 8, 16, 24, 28, 40, 48
+ int unsigned DMX_UNIVERSE = 1; //**Start** universe 1, 9, 17, 25, 33, 41
+ int unsigned UNIVERSE_COUNT = 32; //How Many Universes 8, 8, 8, 4, 8, 8
+ int unsigned UNIVERSE_LAST = 32; // List the last universe typically its sequencially from start but does not have to. 8, 16, 24, 28, 32, 40
  int unsigned CHANNEL_COUNT = 510; //max channels per dmx packet
  byte unsigned LEDS_PER_UNIVERSE = 170; // Max RGB pixels 
 
@@ -99,9 +88,24 @@ float fps = 0;
 unsigned long currentMillis = 0;
 unsigned long previousMillis = 0;
 
+EthernetUDP Udp;
+
 void setup() {
 
- //Figure last universe 
+ //byte ipadd[4] ;   //Variable to store data read from EEPROM.
+  //unsigned int eeAddress = 39; //EEPROM address to start reading from
+//EEPROM.get( eeAddress, ipadd );
+
+//*******************************************************
+// ethernet interface ip address
+//IPAddress ip(ipadd[0], ipadd[1], ipadd[2], ipadd[3]);  //IP address of ethernet shield
+IPAddress ip(192, 168, 2, 21);  //IP address of ethernet shield
+
+//IPAddress mip(239,255,0,1); //multicast IP
+//*******************************************************
+
+// E1.31 is UDP.  One socket library will only allow one protocol to be defined.  
+
 
 
 
@@ -125,12 +129,14 @@ void setup() {
   // Using different LEDs or colour order? Change here...
   // ********************************************************
   LEDS.addLeds<OCTOWS2811>(leds, NUM_LEDS_PER_STRIP);
-  LEDS.setBrightness(125);
+  LEDS.setBrightness(50); //value should be 0-255  Very Bright after 100 default is 50 to save on current and eyes!
   // ********************************************************
 
   //pins 3,4,22 are to the RGB Status LED
  
   // ********************************************************  
+  //Ethernet.init(1); //-> 1 Socket with 16k RX/TX buffer for ethernet3
+  
   Ethernet.begin(mac,ip);
 
 //int success = Udp.beginMulticast(mip, 5568);
@@ -152,6 +158,7 @@ void setup() {
   // ******************************************************** 
     Serial.print("server is at ");
     Serial.println(Ethernet.localIP());
+    //Serial.println(F_BUS);
 
   //Once the Ethernet is initialised, run a test on the LEDs
   //initTest();
@@ -193,12 +200,12 @@ static inline void pixelrefresh(const int syncrefresh){
   //start frame time
   frametimestart = now;
   
-//Serial.println(frametimechk)
- //If we have framed no need to frame again update time to most recent
- if  (syncrefresh == 1){
- frametimeend = frametimestart; 
- frameonce = 1;
- }
+  //Serial.println(frametimechk)
+   //If we have framed no need to frame again update time to most recent
+   if  (syncrefresh == 1){
+   frametimeend = frametimestart; 
+   frameonce = 1;
+   }
    
 //If we havent framed this will increment via time and at some point will be true, 
 //if so we need to frame to clear out any buffer and the hold off untill 
@@ -239,7 +246,7 @@ void sacnDMXReceived(unsigned char* pbuff, int count) {
    digitalWrite(4, HIGH);
     //Serial.print("UNI ");
     //Serial.println(count );
-    //Serial.println(b);
+    //Serial.println(s);
     if ( b >= DMX_UNIVERSE && b <= UNIVERSE_LAST) {
         //Serial.println(b );
       if ( pbuff[125] == 0 ) {  //start code must be 0   
@@ -251,7 +258,7 @@ void sacnDMXReceived(unsigned char* pbuff, int count) {
           byte charValueR = pbuff[i];
           byte charValueG = pbuff[i+1];
           byte charValueB = pbuff[i+2];
-          leds[ledNumber] = CRGB(charValueG,charValueR,charValueB); //RBG GRB
+          leds[ledNumber] = CRGB(charValueR,charValueG,charValueB); //RBG GRB
           //Serial.println(ledNumber);
           ledNumber++;
         }
@@ -281,15 +288,8 @@ void sacnDMXReceived(unsigned char* pbuff, int count) {
          //Serial.print("UNILOOP");
          //Serial.println(uniloopcount);
 
-
-//////////////////////////////////////////////////////////////////////////
-//// CHOOSE HOW YOU WANT THE CONTROLLER TO FRAME?  AFTER LAST UNIVERS/////
-//// OR AFTER COUNTING THE UNIVERSES?                                /////
-//////////////////////////////////////////////////////////////////////////
-       
-        
-        //if (b == UNIVERSE_LAST){   /// FRAME AFTER LAST UNIVERSE?
-        if (uniloopcount >= UNIVERSE_COUNT){ // OR FRAME AFTER UNIVERSE COUNT? 
+        //if (b == UNIVERSE_LAST){
+        if (uniloopcount >= UNIVERSE_COUNT){ 
         //Turn Framing LED ON
         digitalWrite(4, LOW);
         LEDS.show();
